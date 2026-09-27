@@ -33,3 +33,9 @@ build/
 .vscode/
 
 .env
+
+# Crash & log files
+hs_err_pid*
+replay_pid*
+*.log
+
