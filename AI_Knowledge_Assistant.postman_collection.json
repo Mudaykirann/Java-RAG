@@ -1,0 +1,129 @@
+{
+  "info": {
+    "name": "AI Knowledge Assistant",
+    "description": "API endpoints for the AI Knowledge Assistant Spring Boot App",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. Basic Chat",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"message\": \"Explain dependency injection in Spring Boot briefly.\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:8081/api/ai/chat",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "8081",
+          "path": [
+            "api",
+            "ai",
+            "chat"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "2. Summarize Text (Structured Output)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"text\": \"Spring Boot makes it easy to create stand-alone, production-grade Spring based Applications that you can just run. We take an opinionated view of the Spring platform and third-party libraries so you can get started with minimum fuss. Most Spring Boot applications need minimal Spring configuration.\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:8081/api/ai/summarize",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "8081",
+          "path": [
+            "api",
+            "ai",
+            "summarize"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "3. Ingest Document (Vector Store)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"content\": \"Spring AI provides an abstraction layer over diverse AI providers like OpenAI, Azure, and Anthropic. It introduces portable VectorStore abstractions such as PgVector, Pinecone, and Chroma, allowing developers to switch underlying vector engines with zero application code changes.\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:8081/api/ai/documents",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "8081",
+          "path": [
+            "api",
+            "ai",
+            "documents"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "4. Ask Question (RAG)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"question\": \"What VectorStore abstractions does Spring AI support?\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:8081/api/ai/ask",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "8081",
+          "path": [
+            "api",
+            "ai",
+            "ask"
+          ]
+        }
+      },
+      "response": []
+    }
+  ]
+}
