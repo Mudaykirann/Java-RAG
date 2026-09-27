@@ -202,27 +202,54 @@ Document ingested successfully!
 
 ---
 
-### 2. Ask Question via RAG
-Query the knowledge assistant. It searches pgvector for relevant context and answers strictly based on stored knowledge.
+### 2. Ask Question via Multi-Turn RAG
+Query the knowledge assistant. It searches pgvector for relevant context and retains context across multiple turns using Spring AI's `ChatMemory` and query contextualization.
 
 - **Method**: `POST`
 - **Endpoint**: `/api/ai/ask`
 - **Headers**: `Content-Type: application/json`
 
-**Request:**
+**Turn 1 Request:**
 ```bash
 curl -X POST http://localhost:8081/api/ai/ask \
   -H "Content-Type: application/json" \
   -d '{
-    "question": "Who is leading Project Apollo and when is it scheduled?"
+    "question": "Who is leading Project Apollo and when is it scheduled?",
+    "conversationId": "session-101"
   }'
 ```
 
-**Response:**
+**Turn 1 Response:**
 ```json
 {
-  "answer": "Project Apollo is scheduled for Q4 2026, and the lead engineer is Sarah Jenkins."
+  "answer": "Project Apollo is scheduled for Q4 2026, and the lead engineer is Sarah Jenkins.",
+  "conversationId": "session-101"
 }
+```
+
+**Turn 2 Request (Follow-up with pronouns):**
+```bash
+curl -X POST http://localhost:8081/api/ai/ask \
+  -H "Content-Type: application/json" \
+  -d '{
+    "question": "What cloud provider is she targeting?",
+    "conversationId": "session-101"
+  }'
+```
+
+**Turn 2 Response:**
+```json
+{
+  "answer": "Sarah Jenkins is targeting AWS EKS with multi-region active-active failover for Project Apollo.",
+  "conversationId": "session-101"
+}
+```
+
+**Reset Conversation Memory:**
+- **Method**: `DELETE`
+- **Endpoint**: `/api/ai/ask/{conversationId}`
+```bash
+curl -X DELETE http://localhost:8081/api/ai/ask/session-101
 ```
 
 ---

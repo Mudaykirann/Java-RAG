@@ -2,9 +2,14 @@ package dev.uday.aijavadevs.rag;
 
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.memory.ChatMemory;
+import org.springframework.ai.chat.messages.AssistantMessage;
+import org.springframework.ai.chat.messages.Message;
+import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.chat.prompt.PromptTemplate;
 import org.springframework.ai.document.Document;
@@ -17,34 +22,57 @@ public class RagService {
 
     private final ChatClient chatClient;
     private final VectorStore vectorStore;
+    private final ChatMemory chatMemory;
 
-    public RagService(ChatClient.Builder chatClientBuilder, VectorStore vectorStore) {
+    public RagService(ChatClient.Builder chatClientBuilder, VectorStore vectorStore, ChatMemory chatMemory) {
         this.chatClient = chatClientBuilder.build();
         this.vectorStore = vectorStore;
+        this.chatMemory = chatMemory;
     }
 
     public AskResponse askQuestion(String question) {
-        // 1. Retrieve the top 3 most similar document chunks from pgvector
+        return askQuestion(question, null);
+    }
+
+    public AskResponse askQuestion(String question, String conversationId) {
+        // Ensure a valid conversationId is present
+        String convId = (conversationId != null && !conversationId.isBlank())
+                ? conversationId
+                : UUID.randomUUID().toString();
+
+        // 1. Fetch previous conversation history for this conversationId
+        List<Message> history = chatMemory.get(convId);
+
+        // 2. Query Contextualization: If history exists, reformulate follow-up into a standalone search query
+        String searchQuery = contextualizeQuery(question, history);
+
+        // 3. Retrieve Top-3 most similar document chunks from pgvector using the search query
         List<Document> similarDocuments = vectorStore.similaritySearch(
                 SearchRequest.builder()
-                        .query(question)
+                        .query(searchQuery)
                         .topK(3)
                         .build()
         );
 
-        // 2. Extract and concatenate text from all matched chunks
+        // 4. Extract and concatenate text from all matched chunks
         String context = similarDocuments.stream()
                 .map(Document::getText)
                 .collect(Collectors.joining("\n\n"));
 
-        // 3. Define the prompt template with context and strict instructions
+        // Format history for the prompt
+        String historyString = formatHistory(history);
+
+        // 5. Define the grounded prompt template with Context + Conversation History + Current Question
         String templateString = """
-                You are a knowledgeable assistant. Use the following retrieved CONTEXT to answer the QUESTION.
-                If the answer is not present in the CONTEXT, respond honestly: "I don't have enough information in my knowledge base to answer that."
+                You are a knowledgeable assistant. Use the following retrieved CONTEXT and CONVERSATION HISTORY to answer the user's QUESTION.
+                If the answer is not present in the CONTEXT or CONVERSATION HISTORY, respond honestly: "I don't have enough information in my knowledge base to answer that."
                 Do not make up facts or extrapolate beyond the provided CONTEXT.
 
                 CONTEXT:
                 {context}
+
+                CONVERSATION HISTORY:
+                {history}
 
                 QUESTION:
                 {question}
@@ -53,14 +81,71 @@ public class RagService {
         PromptTemplate promptTemplate = new PromptTemplate(templateString);
         Prompt prompt = promptTemplate.create(Map.of(
                 "context", context.isBlank() ? "No relevant documents found." : context,
+                "history", historyString.isBlank() ? "No previous history." : historyString,
                 "question", question
         ));
 
-        // 4. Send the prompt to the LLM and return the grounded answer
+        // 6. Send the prompt to the LLM and return the grounded answer
         String answer = chatClient.prompt(prompt)
                 .call()
                 .content();
 
-        return new AskResponse(answer);
+        // 7. Save this turn into ChatMemory
+        chatMemory.add(convId, List.of(new UserMessage(question), new AssistantMessage(answer)));
+
+        return new AskResponse(answer, convId);
+    }
+
+    public void clearConversation(String conversationId) {
+        if (conversationId != null && !conversationId.isBlank()) {
+            chatMemory.clear(conversationId);
+        }
+    }
+
+    private String contextualizeQuery(String question, List<Message> history) {
+        if (history == null || history.isEmpty()) {
+            return question;
+        }
+
+        String historyString = formatHistory(history);
+
+        String promptString = """
+                Given the following chat history and a follow-up user question, rephrase the follow-up question into a standalone search query that contains all necessary subject names and context.
+                Do NOT answer the question. Only output the standalone search query without preamble. If the question is already standalone, return it unchanged.
+
+                Chat History:
+                {history}
+
+                Follow-up Question:
+                {question}
+
+                Standalone Search Query:
+                """;
+
+        PromptTemplate template = new PromptTemplate(promptString);
+        Prompt prompt = template.create(Map.of(
+                "history", historyString,
+                "question", question
+        ));
+
+        try {
+            String rewritten = chatClient.prompt(prompt).call().content();
+            if (rewritten != null && !rewritten.isBlank()) {
+                return rewritten.trim();
+            }
+        } catch (Exception e) {
+            // Fallback to original question if reformulation encounters any issue
+        }
+
+        return question;
+    }
+
+    private String formatHistory(List<Message> history) {
+        if (history == null || history.isEmpty()) {
+            return "";
+        }
+        return history.stream()
+                .map(m -> m.getMessageType() + ": " + m.getText())
+                .collect(Collectors.joining("\n"));
     }
 }
