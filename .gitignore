@@ -33,7 +33,9 @@ build/
 .vscode/
 
 .env
-
+.env.example
+.gitignore
+.postman_collection.json
 # Crash & log files
 hs_err_pid*
 replay_pid*

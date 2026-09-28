@@ -180,6 +180,8 @@ The application will start on **`http://localhost:8081`**.
 ## 📡 API Reference & Examples
 
 ### 1. Ingest Knowledge Document
+
+#### A. Raw Text Ingestion
 Ingest raw text into the vector database. The text is split into chunks and stored with vector embeddings.
 
 - **Method**: `POST`
@@ -198,6 +200,29 @@ curl -X POST http://localhost:8081/api/ai/documents \
 **Response:**
 ```text
 Document ingested successfully!
+```
+
+#### B. Multi-Document File Upload (PDF, Word, PPTX, TXT)
+Upload binary documents directly. Parsed with Apache Tika, tokenized, and indexed into pgvector.
+
+- **Method**: `POST`
+- **Endpoint**: `/api/ai/documents/upload`
+- **Headers**: `Content-Type: multipart/form-data`
+
+**Request:**
+```bash
+curl -X POST http://localhost:8081/api/ai/documents/upload \
+  -F "file=@/path/to/handbook.pdf"
+```
+
+**Response:**
+```json
+{
+  "fileName": "handbook.pdf",
+  "chunkCount": 14,
+  "sizeBytes": 1048576,
+  "message": "File parsed, split into 14 chunks, and indexed in pgvector!"
+}
 ```
 
 ---

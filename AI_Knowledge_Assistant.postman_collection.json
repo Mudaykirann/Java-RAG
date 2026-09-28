@@ -1,129 +1,211 @@
 {
   "info": {
-    "name": "AI Knowledge Assistant",
-    "description": "API endpoints for the AI Knowledge Assistant Spring Boot App",
+    "_postman_id": "7a3e8b41-92fb-4d10-a29d-ee182379d012",
+    "name": "AI Knowledge Assistant (Java-RAG)",
+    "description": "Comprehensive Postman collection for testing the Spring Boot + Spring AI + pgvector RAG application, including Multi-Document (PDF/DOCX/TXT) ingestion, Multi-Turn conversational memory, structured summarization, and direct chat.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8081",
+      "type": "string"
+    },
+    {
+      "key": "conversationId",
+      "value": "postman-rag-session-1",
+      "type": "string"
+    }
+  ],
   "item": [
     {
-      "name": "1. Basic Chat",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"message\": \"Explain dependency injection in Spring Boot briefly.\"\n}"
+      "name": "1. Document Ingestion (Vector Store & Tika)",
+      "description": "Endpoints to parse, chunk, and index documents into PostgreSQL pgvector.",
+      "item": [
+        {
+          "name": "1.1 Upload Document (PDF / DOCX / PPTX / TXT)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": [],
+                  "description": "Select any PDF, Word (.docx), PowerPoint (.pptx), Markdown (.md), or Text file to upload."
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/ai/documents/upload",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "ai", "documents", "upload"]
+            },
+            "description": "Parses uploaded binary or text documents via Apache Tika, chunks them with TokenTextSplitter, computes embeddings, and stores them in pgvector with filename metadata."
+          },
+          "response": []
         },
-        "url": {
-          "raw": "http://localhost:8081/api/ai/chat",
-          "protocol": "http",
-          "host": [
-            "localhost"
-          ],
-          "port": "8081",
-          "path": [
-            "api",
-            "ai",
-            "chat"
-          ]
+        {
+          "name": "1.2 Ingest Raw Text",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"Project Apollo is an enterprise cloud migration targeting AWS EKS with multi-region active-active failover. Sarah Jenkins is the lead engineer. Security compliance requires TLS 1.3 and HashiCorp Vault.\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/ai/documents",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "ai", "documents"]
+            },
+            "description": "Splits raw string text into token chunks and indexes them into pgvector."
+          },
+          "response": []
         }
-      },
-      "response": []
+      ]
     },
     {
-      "name": "2. Summarize Text (Structured Output)",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"text\": \"Spring Boot makes it easy to create stand-alone, production-grade Spring based Applications that you can just run. We take an opinionated view of the Spring platform and third-party libraries so you can get started with minimum fuss. Most Spring Boot applications need minimal Spring configuration.\"\n}"
-        },
-        "url": {
-          "raw": "http://localhost:8081/api/ai/summarize",
-          "protocol": "http",
-          "host": [
-            "localhost"
+      "name": "2. Multi-Turn RAG Assistant",
+      "description": "Conversational Q&A grounded in vector search with query contextualization and chat memory.",
+      "item": [
+        {
+          "name": "2.1 Ask RAG (Initial Question)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var json = pm.response.json();",
+                  "    if (json.conversationId) {",
+                  "        pm.collectionVariables.set('conversationId', json.conversationId);",
+                  "        console.log('Saved conversationId:', json.conversationId);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
           ],
-          "port": "8081",
-          "path": [
-            "api",
-            "ai",
-            "summarize"
-          ]
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"question\": \"What is Project Apollo and who is leading it?\",\n  \"conversationId\": \"{{conversationId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/ai/ask",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "ai", "ask"]
+            },
+            "description": "Queries pgvector for Top-K semantic chunks and grounds the LLM answer using retrieved document context."
+          },
+          "response": []
+        },
+        {
+          "name": "2.2 Ask RAG (Follow-up Question with Memory)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"question\": \"What are the security compliance requirements for it?\",\n  \"conversationId\": \"{{conversationId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/ai/ask",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "ai", "ask"]
+            },
+            "description": "Tests query contextualization (pronoun resolution: 'it' -> 'Project Apollo') and multi-turn conversational memory."
+          },
+          "response": []
+        },
+        {
+          "name": "2.3 Clear Conversation Memory",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/ai/ask/{{conversationId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "ai", "ask", "{{conversationId}}"]
+            },
+            "description": "Clears the server-side ChatMemory buffer for the specified conversationId."
+          },
+          "response": []
         }
-      },
-      "response": []
+      ]
     },
     {
-      "name": "3. Ingest Document (Vector Store)",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"content\": \"Spring AI provides an abstraction layer over diverse AI providers like OpenAI, Azure, and Anthropic. It introduces portable VectorStore abstractions such as PgVector, Pinecone, and Chroma, allowing developers to switch underlying vector engines with zero application code changes.\"\n}"
+      "name": "3. Chat & Text Intelligence",
+      "description": "General AI endpoints without vector retrieval.",
+      "item": [
+        {
+          "name": "3.1 Basic Chat",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message\": \"Explain dependency injection in Spring Boot in three bullet points.\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/ai/chat",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "ai", "chat"]
+            },
+            "description": "Direct conversation with the configured LLM without grounding in vector database."
+          },
+          "response": []
         },
-        "url": {
-          "raw": "http://localhost:8081/api/ai/documents",
-          "protocol": "http",
-          "host": [
-            "localhost"
-          ],
-          "port": "8081",
-          "path": [
-            "api",
-            "ai",
-            "documents"
-          ]
+        {
+          "name": "3.2 Summarize Text (Structured Output)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"text\": \"Spring AI provides an abstraction layer over diverse AI providers like OpenAI, Azure, and Anthropic. It introduces portable VectorStore abstractions such as PgVector, Pinecone, and Chroma, allowing developers to switch underlying vector engines with zero application code changes.\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/ai/summarize",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "ai", "summarize"]
+            },
+            "description": "Uses Spring AI structured entity extraction to return a typed JSON object: { title, summary, keyPoints }."
+          },
+          "response": []
         }
-      },
-      "response": []
-    },
-    {
-      "name": "4. Ask Question (RAG)",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"question\": \"What VectorStore abstractions does Spring AI support?\"\n}"
-        },
-        "url": {
-          "raw": "http://localhost:8081/api/ai/ask",
-          "protocol": "http",
-          "host": [
-            "localhost"
-          ],
-          "port": "8081",
-          "path": [
-            "api",
-            "ai",
-            "ask"
-          ]
-        }
-      },
-      "response": []
+      ]
     }
   ]
 }
