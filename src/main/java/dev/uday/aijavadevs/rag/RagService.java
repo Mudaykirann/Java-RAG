@@ -5,6 +5,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import dev.uday.aijavadevs.weather.WeatherTools;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.messages.AssistantMessage;
@@ -23,11 +24,13 @@ public class RagService {
     private final ChatClient chatClient;
     private final VectorStore vectorStore;
     private final ChatMemory chatMemory;
+    private final WeatherTools weatherTools;
 
-    public RagService(ChatClient.Builder chatClientBuilder, VectorStore vectorStore, ChatMemory chatMemory) {
+    public RagService(ChatClient.Builder chatClientBuilder, VectorStore vectorStore, ChatMemory chatMemory, WeatherTools weatherTools) {
         this.chatClient = chatClientBuilder.build();
         this.vectorStore = vectorStore;
         this.chatMemory = chatMemory;
+        this.weatherTools = weatherTools;
     }
 
     public AskResponse askQuestion(String question) {
@@ -62,11 +65,11 @@ public class RagService {
         // Format history for the prompt
         String historyString = formatHistory(history);
 
-        // 5. Define the grounded prompt template with Context + Conversation History + Current Question
+        // 5. Define the grounded prompt template with Context + Conversation History + Current Question + Tools
         String templateString = """
-                You are a knowledgeable assistant. Use the following retrieved CONTEXT and CONVERSATION HISTORY to answer the user's QUESTION.
-                If the answer is not present in the CONTEXT or CONVERSATION HISTORY, respond honestly: "I don't have enough information in my knowledge base to answer that."
-                Do not make up facts or extrapolate beyond the provided CONTEXT.
+                You are a knowledgeable assistant. Use the retrieved CONTEXT, CONVERSATION HISTORY, and any available live TOOLS (such as weather) to answer the user's QUESTION.
+                If the answer is not present in the CONTEXT, CONVERSATION HISTORY, or available TOOLS, respond honestly: "I don't have enough information in my knowledge base to answer that."
+                Do not make up facts or extrapolate beyond the provided CONTEXT or tool outputs.
 
                 CONTEXT:
                 {context}
@@ -85,8 +88,9 @@ public class RagService {
                 "question", question
         ));
 
-        // 6. Send the prompt to the LLM and return the grounded answer
+        // 6. Send the prompt to the LLM with available tools and return the answer
         String answer = chatClient.prompt(prompt)
+                .tools(weatherTools)
                 .call()
                 .content();
 
